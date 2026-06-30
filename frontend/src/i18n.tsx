@@ -4,7 +4,7 @@ export type Lang = 'en' | 'ru'
 export const LANG_LS = 'sa_lang'
 
 const en = {
-  tabCategories: 'Categories',
+  tabGames: 'Games',
   tabSettings: '⚙ Settings',
   mockBadge: 'MOCK data',
   mockTip: 'Add API keys in the Settings tab to get real data',
@@ -69,10 +69,20 @@ const en = {
   sActive: 'active',
   sNone: 'none',
   sLanguage: 'Language',
+  qTitle: 'Tracked games',
+  qHint:
+    'Each entry is a YouTube live-search the collector polls (e.g. “dark souls”, “minecraft”). Stored in this browser and pushed to the server. Searching a game that isn’t tracked offers to add it.',
+  qAdd: 'Add a game…',
+  qAddBtn: 'Add',
+  qApply: 'Save & track',
+  qApplied: 'Tracked games updated — collector restarted',
+  cGameName: 'Game',
+  trackGame: 'Track & fetch',
+  loadingMore: 'Loading…',
 }
 
 const ru: typeof en = {
-  tabCategories: 'Категории',
+  tabGames: 'Игры',
   tabSettings: '⚙ Настройки',
   mockBadge: 'MOCK-данные',
   mockTip: 'Добавь API-ключи во вкладке Настройки, чтобы получать реальные данные',
@@ -137,6 +147,16 @@ const ru: typeof en = {
   sActive: 'активен',
   sNone: 'нет',
   sLanguage: 'Язык',
+  qTitle: 'Отслеживаемые игры',
+  qHint:
+    'Каждый пункт — это live-поиск YouTube, который опрашивает коллектор (напр. «dark souls», «minecraft»). Хранится в этом браузере и отправляется на сервер. Поиск игры, которой нет в списке, предложит её добавить.',
+  qAdd: 'Добавить игру…',
+  qAddBtn: 'Добавить',
+  qApply: 'Сохранить и отслеживать',
+  qApplied: 'Список игр обновлён — коллектор перезапущен',
+  cGameName: 'Игра',
+  trackGame: 'Отслеживать и загрузить',
+  loadingMore: 'Загрузка…',
 }
 
 const dict: Record<Lang, typeof en> = { en, ru }

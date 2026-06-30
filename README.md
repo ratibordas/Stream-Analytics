@@ -1,6 +1,6 @@
 # Stream Analytics
 
-Live-stream analytics that answers one question: **which categories hold a stable
+Live-stream analytics that answers one question: **which games hold a stable
 audience, and where is it worth streaming?**
 
 Neither Twitch nor YouTube exposes viewer *history* — only the current value. So the
@@ -38,7 +38,6 @@ Copy `.env.example` to `.env` (done by `setup.sh`). Key settings:
 | Var | Default | Purpose |
 |-----|---------|---------|
 | `YOUTUBE_API_KEY` | — | YouTube Data API v3 key. Empty → mock mode. |
-| `YOUTUBE_QUERIES` | `gaming live,...` | Live-search queries; YouTube has no game taxonomy, streams are grouped by these. |
 | `YT_POLL_INTERVAL_SEC` | `14400` | Poll interval (4 h). `search.list` costs 100 of 10 000 daily quota units. |
 | `MOCK` | `auto` | `auto` (mock when no key) / `true` / `false`. |
 | `PORT` | `8080` | HTTP port. |
@@ -51,6 +50,12 @@ Keys can also be set at runtime via the **Settings** tab: they're validated agai
 real API, kept only in browser `localStorage` + server memory (never written to disk),
 and hot-swap the collectors with no restart.
 
+**Tracked games** are managed the same way (Settings → "Tracked games"): each entry is a
+free-text YouTube live-search (e.g. `dark souls`, `minecraft`) that the collector polls.
+They live in the browser, are pushed to the server, and hot-rebuild the collector — there
+is no `.env` query list. A stream's **game** is the search it was found under; searching a
+game that isn't tracked offers a one-click "Track & fetch" to add and poll it immediately.
+
 ## API
 
 ```
@@ -58,10 +63,12 @@ GET  /api/meta                  # mock flag, snapshot count, time range
 POST /api/poll                  # poll all collectors now
 GET  /api/keys/status           # which keys are active, mock flag
 POST /api/keys                  # {youtube_api_key, wipe_data} — validate + hot-swap
+GET  /api/queries               # current tracked games
+POST /api/queries               # {queries:[...]} — replace + hot-rebuild collector
 GET  /api/youtube/streams       # ?game=&streamer=&min_viewers=&max_viewers=
                                 #  &from=<unix>&to=<unix>&sort=current|period|trend
                                 #  &order=asc|desc&live=0|1&limit=&offset=
-GET  /api/youtube/categories    # ?from=<unix>&to=<unix>
+GET  /api/youtube/games         # per-game aggregates · ?from=<unix>&to=<unix>
 ```
 
 `{platform}` is `youtube` (Twitch routes return 404 while disabled).
@@ -71,9 +78,9 @@ GET  /api/youtube/categories    # ?from=<unix>&to=<unix>
 - **Streams table** — current / average / peak viewers per stream, plus deltas:
   `Δ period` (viewer trend over the selected window), `Δ month` (channel over 30 days),
   `Δ subs/mo`. Changes ≥30% are highlighted.
-- **Categories** — `viewers per channel` (competition), `trend` (second half of the
-  period vs the first), and `instability` (coefficient of variation; lower = steadier).
-  Best category: high viewers-per-channel, low instability, trend ≥ 0.
+- **Games** — per-game aggregates: `viewers per channel` (competition), `trend` (second
+  half of the period vs the first), and `instability` (coefficient of variation; lower =
+  steadier). Best target: high viewers-per-channel, low instability, trend ≥ 0.
 - The UI is English/Russian (toggle in Settings) and refreshes every 60 s.
 
 ## Platform API limits

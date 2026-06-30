@@ -62,6 +62,8 @@ export interface StreamQuery {
   sort?: string
   order?: string
   live?: string
+  limit?: number
+  offset?: number
 }
 
 export function fetchStreams(platform: string, q: StreamQuery) {
@@ -75,19 +77,48 @@ export function fetchStreams(platform: string, q: StreamQuery) {
   if (q.sort) p.set('sort', q.sort)
   if (q.order) p.set('order', q.order)
   if (q.live === '0') p.set('live', '0')
-  p.set('limit', '200')
+  p.set('limit', String(q.limit ?? 50))
+  p.set('offset', String(q.offset ?? 0))
   return getJSON<{ items: StreamRow[]; total: number; from: number; to: number }>(
     `/api/${platform}/streams?${p}`,
   )
 }
 
-export function fetchCategories(platform: string, from?: number, to?: number) {
+export function fetchGames(platform: string, from?: number, to?: number) {
   const p = new URLSearchParams()
   if (from) p.set('from', String(from))
   if (to) p.set('to', String(to))
   return getJSON<{ items: CategoryRow[]; from: number; to: number }>(
-    `/api/${platform}/categories?${p}`,
+    `/api/${platform}/games?${p}`,
   )
+}
+
+export const QUERIES_LS = 'sa_yt_queries'
+
+export function loadQueriesFromBrowser(): string[] | null {
+  try {
+    const raw = localStorage.getItem(QUERIES_LS)
+    return raw ? (JSON.parse(raw) as string[]) : null
+  } catch {
+    return null
+  }
+}
+
+export function fetchQueries() {
+  return getJSON<{ queries: string[] }>('/api/queries')
+}
+
+export async function saveQueries(queries: string[]): Promise<{ queries: string[] }> {
+  const r = await fetch('/api/queries', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ queries }),
+  })
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}))
+    throw new Error(body.error || `HTTP ${r.status}`)
+  }
+  return r.json()
 }
 
 export function fetchMeta() {

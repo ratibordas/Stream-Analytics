@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS streams (
   streamer        TEXT NOT NULL DEFAULT '',
   title           TEXT NOT NULL DEFAULT '',
   game            TEXT NOT NULL DEFAULT '',
+  category        TEXT NOT NULL DEFAULT '',
   language        TEXT NOT NULL DEFAULT '',
   url             TEXT NOT NULL DEFAULT '',
   tags            TEXT NOT NULL DEFAULT '',
@@ -32,11 +33,12 @@ CREATE TABLE IF NOT EXISTS streams (
   is_live         INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY (platform, id)
 );
-CREATE TABLE IF NOT EXISTS categories (
+CREATE TABLE IF NOT EXISTS group_images (
   platform  TEXT NOT NULL,
+  dim       TEXT NOT NULL,
   name      TEXT NOT NULL,
   image_url TEXT NOT NULL DEFAULT '',
-  PRIMARY KEY (platform, name)
+  PRIMARY KEY (platform, dim, name)
 );
 CREATE TABLE IF NOT EXISTS snapshots (
   platform  TEXT NOT NULL,
@@ -48,15 +50,15 @@ CREATE TABLE IF NOT EXISTS snapshots (
 CREATE INDEX IF NOT EXISTS idx_snap ON snapshots(platform, stream_id, ts);
 CREATE INDEX IF NOT EXISTS idx_snap_ts ON snapshots(ts);
 CREATE INDEX IF NOT EXISTS idx_snap_streamer ON snapshots(platform, streamer, ts);
-CREATE TABLE IF NOT EXISTS category_snapshots (
+CREATE TABLE IF NOT EXISTS group_snapshots (
   platform      TEXT NOT NULL,
-  category      TEXT NOT NULL,
+  dim           TEXT NOT NULL,
+  name          TEXT NOT NULL,
   ts            INTEGER NOT NULL,
   total_viewers INTEGER NOT NULL,
   stream_count  INTEGER NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_cat ON category_snapshots(platform, category, ts);
--- subscriber history per channel (YouTube; Twitch API does not expose subs)
+CREATE INDEX IF NOT EXISTS idx_group ON group_snapshots(platform, dim, name, ts);
 CREATE TABLE IF NOT EXISTS channel_stats (
   platform    TEXT NOT NULL,
   streamer    TEXT NOT NULL,
@@ -79,6 +81,7 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	db.Exec(`ALTER TABLE streams ADD COLUMN avatar_url TEXT NOT NULL DEFAULT ''`)
+	db.Exec(`ALTER TABLE streams ADD COLUMN category TEXT NOT NULL DEFAULT ''`)
 	return &Store{db: db}, nil
 }
 
@@ -86,28 +89,29 @@ func (s *Store) Close() error { return s.db.Close() }
 
 func (s *Store) WipeAll() error {
 	_, err := s.db.Exec(`DELETE FROM snapshots; DELETE FROM streams;
-		DELETE FROM category_snapshots; DELETE FROM channel_stats;`)
+		DELETE FROM group_snapshots; DELETE FROM group_images; DELETE FROM channel_stats;`)
 	return err
 }
 
 type StreamUpsert struct {
 	Platform, ID, Streamer, Title, Game, Language, URL, Tags, Extra string
 	AvatarURL                                                       string
+	Thumbnail                                                       string
 	StartedAt                                                       int64
 	Viewers                                                         int
 	Subscribers                                                     int64
 }
 
-func (s *Store) UpsertCategoryImages(platform string, images map[string]string) error {
+func (s *Store) UpsertGroupImages(platform, dim string, images map[string]string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 	for name, url := range images {
-		if _, err := tx.Exec(`INSERT INTO categories(platform,name,image_url) VALUES(?,?,?)
-		  ON CONFLICT(platform,name) DO UPDATE SET image_url=excluded.image_url`,
-			platform, name, url); err != nil {
+		if _, err := tx.Exec(`INSERT INTO group_images(platform,dim,name,image_url) VALUES(?,?,?,?)
+		  ON CONFLICT(platform,dim,name) DO UPDATE SET image_url=excluded.image_url`,
+			platform, dim, name, url); err != nil {
 			return err
 		}
 	}
@@ -122,10 +126,10 @@ func (s *Store) SavePoll(platform string, ts int64, items []StreamUpsert) error 
 	defer tx.Rollback()
 
 	up, err := tx.Prepare(`INSERT INTO streams
-	  (platform,id,streamer,title,game,language,url,tags,extra,avatar_url,started_at,last_seen_at,current_viewers,is_live)
-	  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1)
+	  (platform,id,streamer,title,game,category,language,url,tags,extra,avatar_url,started_at,last_seen_at,current_viewers,is_live)
+	  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
 	  ON CONFLICT(platform,id) DO UPDATE SET
-	    streamer=excluded.streamer, title=excluded.title, game=excluded.game,
+	    streamer=excluded.streamer, title=excluded.title, game=excluded.game, category=excluded.category,
 	    language=excluded.language, url=excluded.url, tags=excluded.tags, extra=excluded.extra,
 	    avatar_url=excluded.avatar_url,
 	    started_at=excluded.started_at, last_seen_at=excluded.last_seen_at,
@@ -142,11 +146,10 @@ func (s *Store) SavePoll(platform string, ts int64, items []StreamUpsert) error 
 		return err
 	}
 
-	type agg struct{ viewers, count int }
-	cats := map[string]*agg{}
+	games := map[string]*groupAgg{}
 	seenSubs := map[string]bool{}
 	for _, it := range items {
-		if _, err := up.Exec(platform, it.ID, it.Streamer, it.Title, it.Game, it.Language,
+		if _, err := up.Exec(platform, it.ID, it.Streamer, it.Title, it.Game, "", it.Language,
 			it.URL, it.Tags, it.Extra, it.AvatarURL, it.StartedAt, ts, it.Viewers); err != nil {
 			return err
 		}
@@ -159,28 +162,51 @@ func (s *Store) SavePoll(platform string, ts int64, items []StreamUpsert) error 
 				return err
 			}
 		}
-		key := it.Game
-		if key == "" {
-			key = "(uncategorized)"
-		}
-		a := cats[key]
-		if a == nil {
-			a = &agg{}
-			cats[key] = a
-		}
-		a.viewers += it.Viewers
-		a.count++
+		addGroup(games, it.Game, it)
 	}
-	for cat, a := range cats {
-		if _, err := tx.Exec(`INSERT INTO category_snapshots(platform,category,ts,total_viewers,stream_count) VALUES(?,?,?,?,?)`,
-			platform, cat, ts, a.viewers, a.count); err != nil {
+	for name, a := range games {
+		if _, err := tx.Exec(`INSERT INTO group_snapshots(platform,dim,name,ts,total_viewers,stream_count) VALUES(?,'game',?,?,?,?)`,
+			platform, name, ts, a.viewers, a.count); err != nil {
 			return err
+		}
+		if a.image != "" {
+			if _, err := tx.Exec(`INSERT INTO group_images(platform,dim,name,image_url) VALUES(?,'game',?,?)
+			  ON CONFLICT(platform,dim,name) DO UPDATE SET image_url=excluded.image_url`,
+				platform, name, a.image); err != nil {
+				return err
+			}
 		}
 	}
 	if _, err := tx.Exec(`UPDATE streams SET is_live=0 WHERE platform=? AND last_seen_at < ?`, platform, ts); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+type groupAgg struct {
+	viewers, count, top int
+	image               string
+}
+
+// addGroup accumulates a stream into a dimension bucket, tracking the
+// thumbnail of the highest-viewer stream as the bucket's image.
+func addGroup(m map[string]*groupAgg, name string, it StreamUpsert) {
+	if name == "" {
+		name = "(uncategorized)"
+	}
+	a := m[name]
+	if a == nil {
+		a = &groupAgg{}
+		m[name] = a
+	}
+	a.viewers += it.Viewers
+	a.count++
+	if it.Viewers >= a.top {
+		a.top = it.Viewers
+		if it.Thumbnail != "" {
+			a.image = it.Thumbnail
+		}
+	}
 }
 
 type StreamRow struct {
@@ -280,12 +306,12 @@ func (s *Store) ListStreams(f StreamFilter) ([]StreamRow, int, error) {
 	}
 
 	q := `SELECT s.platform,s.id,s.streamer,s.title,s.game,s.language,s.url,s.tags,s.extra,
-	  s.avatar_url, COALESCE(cat.image_url,''),
+	  s.avatar_url, COALESCE(gi_g.image_url,''),
 	  s.started_at,s.last_seen_at,s.current_viewers,s.is_live,
 	  COALESCE(p.avg_v,0), COALESCE(p.peak_v,0), COALESCE(p.cnt,0),
 	  p.h1, p.h2, m.mh1, m.mh2, c1.s_first, c2.s_last
 	FROM streams s
-	LEFT JOIN categories cat ON cat.platform = s.platform AND cat.name = s.game
+	LEFT JOIN group_images gi_g ON gi_g.platform = s.platform AND gi_g.dim = 'game' AND gi_g.name = s.game
 	LEFT JOIN (
 	  SELECT platform, stream_id, AVG(viewers) avg_v, MAX(viewers) peak_v, COUNT(*) cnt,
 	    AVG(CASE WHEN ts < ? THEN viewers END) h1,
@@ -360,19 +386,19 @@ type CategoryRow struct {
 	Samples      int     `json:"samples"`
 }
 
-func (s *Store) ListCategories(platform string, from, to int64) ([]CategoryRow, error) {
+func (s *Store) ListGames(platform string, from, to int64) ([]CategoryRow, error) {
 	mid := (from + to) / 2
-	rows, err := s.db.Query(`SELECT cs.category, COALESCE(c.image_url,''),
-	  AVG(cs.total_viewers), MAX(cs.total_viewers), AVG(cs.stream_count),
-	  AVG(CAST(cs.total_viewers AS REAL)/MAX(cs.stream_count,1)),
-	  AVG(CASE WHEN cs.ts < ?  THEN cs.total_viewers END),
-	  AVG(CASE WHEN cs.ts >= ? THEN cs.total_viewers END),
-	  AVG(CAST(cs.total_viewers AS REAL)*cs.total_viewers),
+	rows, err := s.db.Query(`SELECT gs.name, COALESCE(gi.image_url,''),
+	  AVG(gs.total_viewers), MAX(gs.total_viewers), AVG(gs.stream_count),
+	  AVG(CAST(gs.total_viewers AS REAL)/MAX(gs.stream_count,1)),
+	  AVG(CASE WHEN gs.ts < ?  THEN gs.total_viewers END),
+	  AVG(CASE WHEN gs.ts >= ? THEN gs.total_viewers END),
+	  AVG(CAST(gs.total_viewers AS REAL)*gs.total_viewers),
 	  COUNT(*)
-	FROM category_snapshots cs
-	LEFT JOIN categories c ON c.platform = cs.platform AND c.name = cs.category
-	WHERE cs.platform = ? AND cs.ts BETWEEN ? AND ?
-	GROUP BY cs.category
+	FROM group_snapshots gs
+	LEFT JOIN group_images gi ON gi.platform = gs.platform AND gi.dim = gs.dim AND gi.name = gs.name
+	WHERE gs.platform = ? AND gs.dim = 'game' AND gs.ts BETWEEN ? AND ?
+	GROUP BY gs.name
 	ORDER BY 3 DESC`, mid, mid, platform, from, to)
 	if err != nil {
 		return nil, err

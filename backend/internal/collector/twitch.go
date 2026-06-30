@@ -199,7 +199,7 @@ func (t *Twitch) ensureGameIDs(ctx context.Context) error {
 	n := len(t.gameIDs)
 	t.mu.Unlock()
 	if len(images) > 0 {
-		if err := t.Store.UpsertCategoryImages("twitch", images); err != nil {
+		if err := t.Store.UpsertGroupImages("twitch", "game", images); err != nil {
 			log.Printf("twitch: save category images: %v", err)
 		}
 	}

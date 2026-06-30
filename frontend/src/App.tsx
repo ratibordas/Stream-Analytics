@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { fetchKeysStatus, fetchMeta, loadKeysFromBrowser, Meta, saveKeys } from './api'
-import CategoriesView from './CategoriesView'
+import {
+  fetchKeysStatus, fetchMeta, loadKeysFromBrowser, loadQueriesFromBrowser,
+  Meta, saveKeys, saveQueries,
+} from './api'
+import GamesView from './CategoriesView'
 import { useI18n } from './i18n'
 import SettingsView from './SettingsView'
 import StreamsView from './StreamsView'
@@ -12,7 +15,7 @@ export default function App() {
     // Twitch is disabled — re-add `{ id: 'twitch', label: 'Twitch' }` here
     // (and re-enable the backend wiring) to bring it back.
     { id: 'youtube', label: 'YouTube' },
-    { id: 'categories', label: t('tabCategories') },
+    { id: 'games', label: t('tabGames') },
     { id: 'settings', label: t('tabSettings') },
   ]
   const [sp, setSp] = useSearchParams()
@@ -38,6 +41,11 @@ export default function App() {
       })
       .catch(() => {})
   }, [reloadMeta])
+
+  useEffect(() => {
+    const queries = loadQueriesFromBrowser()
+    if (queries && queries.length) saveQueries(queries).catch(() => {})
+  }, [])
 
   const switchTab = (id: string) => {
     const next = new URLSearchParams(sp)
@@ -68,8 +76,8 @@ export default function App() {
         </nav>
       </header>
       <main>
-        {tab === 'categories' ? (
-          <CategoriesView />
+        {tab === 'games' ? (
+          <GamesView />
         ) : tab === 'settings' ? (
           <SettingsView onChanged={reloadMeta} />
         ) : (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  ApiKeys, fetchKeysStatus, KEYS_LS, KeysStatus, loadKeysFromBrowser, saveKeys,
+  ApiKeys, fetchKeysStatus, fetchQueries, KEYS_LS, KeysStatus,
+  loadKeysFromBrowser, loadQueriesFromBrowser, QUERIES_LS, saveKeys, saveQueries,
 } from './api'
 import { Lang, useI18n } from './i18n'
 
@@ -117,6 +118,78 @@ export default function SettingsView({ onChanged }: { onChanged: () => void }) {
       </div>
       {errors.global && <div className="err">{errors.global}</div>}
       {okMsg && <div className="ok">{okMsg}</div>}
+
+      <QueriesManager onChanged={onChanged} />
     </div>
+  )
+}
+
+function QueriesManager({ onChanged }: { onChanged: () => void }) {
+  const { t } = useI18n()
+  const [queries, setQueries] = useState<string[]>([])
+  const [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    const local = loadQueriesFromBrowser()
+    if (local && local.length) setQueries(local)
+    else fetchQueries().then((r) => setQueries(r.queries)).catch(() => {})
+  }, [])
+
+  const add = (q: string) => {
+    const v = q.trim()
+    if (!v || queries.some((x) => x.toLowerCase() === v.toLowerCase())) return
+    setQueries([...queries, v])
+    setDraft('')
+    setMsg('')
+  }
+  const remove = (q: string) => {
+    setQueries(queries.filter((x) => x !== q))
+    setMsg('')
+  }
+
+  const apply = async () => {
+    setBusy(true)
+    setMsg('')
+    try {
+      const r = await saveQueries(queries)
+      setQueries(r.queries)
+      localStorage.setItem(QUERIES_LS, JSON.stringify(r.queries))
+      setMsg(t('qApplied'))
+      onChanged()
+    } catch (e) {
+      setMsg(String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <fieldset className="queries">
+      <legend>{t('qTitle')}</legend>
+      <p className="hint">{t('qHint')}</p>
+      <div className="chips">
+        {queries.map((q) => (
+          <span className="chip" key={q}>
+            {q}
+            <button className="x" onClick={() => remove(q)} aria-label="remove">×</button>
+          </span>
+        ))}
+      </div>
+      <div className="filters">
+        <input
+          placeholder={t('qAdd')}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && add(draft)}
+        />
+        <button className="reset" onClick={() => add(draft)}>{t('qAddBtn')}</button>
+        <button className="pollbtn" onClick={apply} disabled={busy || queries.length === 0}>
+          {busy ? t('sApplying') : t('qApply')}
+        </button>
+      </div>
+      {msg && <div className="ok">{msg}</div>}
+    </fieldset>
   )
 }

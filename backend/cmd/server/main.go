@@ -21,11 +21,12 @@ type app struct {
 	st   *store.Store
 	root context.Context
 
-	mu     sync.Mutex
-	cancel context.CancelFunc
-	mgr    *collector.Manager
-	keys   config.Keys
-	mock   bool
+	mu      sync.Mutex
+	cancel  context.CancelFunc
+	mgr     *collector.Manager
+	keys    config.Keys
+	queries []string
+	mock    bool
 }
 
 func (a *app) rebuild(keys config.Keys) {
@@ -58,12 +59,12 @@ func (a *app) rebuild(keys config.Keys) {
 		// }
 		if keys.YouTubeAPIKey != "" {
 			ytInterval := a.cfg.YTPollInterval
-			if len(a.cfg.YouTubeQueries) > 2 && ytInterval < 30*time.Minute {
+			if len(a.queries) > 2 && ytInterval < 30*time.Minute {
 				log.Printf("youtube: %d queries -> raising poll interval to 30m to respect quota",
-					len(a.cfg.YouTubeQueries))
+					len(a.queries))
 				ytInterval = 30 * time.Minute
 			}
-			mgr.Add(collector.NewYouTube(keys.YouTubeAPIKey, a.cfg.YouTubeQueries, a.st), ytInterval)
+			mgr.Add(collector.NewYouTube(keys.YouTubeAPIKey, a.queries, a.st), ytInterval)
 		} else {
 			log.Printf("youtube collector: disabled (no key)")
 		}
@@ -86,6 +87,23 @@ func (a *app) isMock() bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.mock
+}
+
+func (a *app) getQueries() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]string{}, a.queries...)
+}
+
+// setQueries replaces the tracked YouTube search queries and hot-rebuilds the
+// collectors so the change takes effect without a restart.
+func (a *app) setQueries(qs []string) []string {
+	a.mu.Lock()
+	a.queries = qs
+	keys := a.keys
+	a.mu.Unlock()
+	a.rebuild(keys)
+	return a.getQueries()
 }
 
 func (a *app) keysStatus() api.KeysStatus {
@@ -142,7 +160,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	a := &app{cfg: cfg, st: st, root: ctx}
+	a := &app{cfg: cfg, st: st, root: ctx, queries: cfg.YouTubeQueries}
 	a.rebuild(config.Keys{
 		TwitchClientID: cfg.TwitchClientID,
 		TwitchSecret:   cfg.TwitchSecret,
@@ -158,6 +176,8 @@ func main() {
 			IsMock:     a.isMock,
 			KeysStatus: a.keysStatus,
 			SetKeys:    a.setKeys,
+			GetQueries: a.getQueries,
+			SetQueries: a.setQueries,
 		}).Handler(),
 	}
 	go func() {

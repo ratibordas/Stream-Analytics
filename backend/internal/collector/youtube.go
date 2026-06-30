@@ -82,11 +82,17 @@ func (y *YouTube) fetchLive(ctx context.Context, query string) ([]store.StreamUp
 		Items []struct {
 			ID      string `json:"id"`
 			Snippet struct {
-				Title        string `json:"title"`
-				ChannelID    string `json:"channelId"`
-				ChannelTitle string `json:"channelTitle"`
-				CategoryID   string `json:"categoryId"`
-				Language     string `json:"defaultAudioLanguage"`
+				Title        string   `json:"title"`
+				ChannelID    string   `json:"channelId"`
+				ChannelTitle string   `json:"channelTitle"`
+				CategoryID   string   `json:"categoryId"`
+				Language     string   `json:"defaultAudioLanguage"`
+				Tags         []string `json:"tags"`
+				Thumbnails   struct {
+					Medium struct {
+						URL string `json:"url"`
+					} `json:"medium"`
+				} `json:"thumbnails"`
 			} `json:"snippet"`
 			Live struct {
 				ConcurrentViewers string `json:"concurrentViewers"`
@@ -150,8 +156,10 @@ func (y *YouTube) fetchLive(ctx context.Context, query string) ([]store.StreamUp
 			Game:      query,
 			Language:  v.Snippet.Language,
 			URL:       "https://youtube.com/watch?v=" + v.ID,
+			Tags:      strings.Join(v.Snippet.Tags, ", "),
 			Extra:     string(extra),
 			AvatarURL: avatars[v.Snippet.ChannelID],
+			Thumbnail: v.Snippet.Thumbnails.Medium.URL,
 			StartedAt: started.Unix(), Viewers: viewers,
 			Subscribers: subscribers,
 		})

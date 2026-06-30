@@ -28,7 +28,7 @@ export default function FilterBar({ showDates = true }: { showDates?: boolean })
         }
       }
       if (changed) setSp(next, { replace: true })
-    }, 400)
+    }, 800)
     return () => clearTimeout(tm)
   }, [draft])
 

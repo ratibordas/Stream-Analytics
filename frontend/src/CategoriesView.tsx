@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CategoryRow, fetchCategories, fmtNum, localToUnix } from './api'
+import { CategoryRow, fetchGames, fmtNum, localToUnix } from './api'
 import { useI18n } from './i18n'
 import { GameIcon } from './Icons'
 import PollButton from './PollButton'
 
 const POLL_MS = 60_000
 
-export default function CategoriesView() {
+export default function GamesView() {
   const { t, lang } = useI18n()
   const [sp, setSp] = useSearchParams()
-  const platform = sp.get('cplat') ?? 'twitch'
   const [rows, setRows] = useState<CategoryRow[]>([])
   const [err, setErr] = useState('')
   const [sortKey, setSortKey] = useState<keyof CategoryRow>('avg_viewers')
@@ -20,10 +19,10 @@ export default function CategoriesView() {
   const to = sp.get('to')
 
   const load = useCallback(() => {
-    fetchCategories(platform, localToUnix(from), localToUnix(to))
+    fetchGames('youtube', localToUnix(from), localToUnix(to))
       .then((d) => { setRows(d.items); setErr('') })
       .catch((e) => setErr(String(e)))
-  }, [platform, from, to])
+  }, [from, to])
 
   useEffect(() => {
     load()
@@ -58,17 +57,6 @@ export default function CategoriesView() {
   return (
     <>
       <div className="filters">
-        <div className="tabs small">
-          {['twitch', 'youtube'].map((p) => (
-            <button
-              key={p}
-              className={platform === p ? 'active' : ''}
-              onClick={() => setParam('cplat', p)}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
         <label className="dt">
           {t('fPeriodFrom')}{' '}
           <input type="datetime-local" value={from ?? ''} onChange={(e) => setParam('from', e.target.value)} />
@@ -82,10 +70,11 @@ export default function CategoriesView() {
         {err && <span className="err">{err}</span>}
         <PollButton onDone={load} />
       </div>
+      <div className="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>{t('cCategory')}</th>
+            <th>{t('cGameName')}</th>
             {header('avg_viewers', t('cAvgViewers'))}
             {header('peak_viewers', t('cPeakViewers'))}
             {header('avg_channels', t('cAvgChannels'))}
@@ -119,6 +108,7 @@ export default function CategoriesView() {
           )}
         </tbody>
       </table>
+      </div>
       <p className="hint">{t('catHint')}</p>
     </>
   )

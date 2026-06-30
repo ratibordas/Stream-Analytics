@@ -87,7 +87,7 @@ func Load() Config {
 		TwitchSecret:    os.Getenv("TWITCH_CLIENT_SECRET"),
 		YouTubeAPIKey:   os.Getenv("YOUTUBE_API_KEY"),
 		Categories:      getlist("CATEGORIES", "Just Chatting,League of Legends,Counter-Strike,Dota 2,Minecraft,Grand Theft Auto V,Valorant,Fortnite"),
-		YouTubeQueries:  getlist("YOUTUBE_QUERIES", "gaming live,minecraft live,just chatting irl"),
+		YouTubeQueries:  getlist("YOUTUBE_QUERIES", "Minecraft,Fortnite,VALORANT,League of Legends,Grand Theft Auto V,Counter-Strike 2,Dota 2,Call of Duty Warzone,Apex Legends,Roblox"),
 		PollInterval:    time.Duration(getint("POLL_INTERVAL_SEC", 900)) * time.Second,
 		YTPollInterval:  time.Duration(getint("YT_POLL_INTERVAL_SEC", 14400)) * time.Second,
 		StaticDir:       getenv("STATIC_DIR", "../frontend/dist"),

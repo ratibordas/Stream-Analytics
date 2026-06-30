@@ -155,3 +155,28 @@ td.extra { max-width: 260px; }
 }
 .settings .ok { color: var(--green); font-size: 13px; }
 .settings .err { font-size: 13px; margin-top: 6px; }
+
+.table-wrap { overflow-x: auto; }
+.table-wrap table { min-width: 760px; }
+
+.track-cta { margin-top: 12px; }
+
+th .sub {
+  display: block; font-size: 10px; font-weight: 400; text-transform: none;
+  letter-spacing: 0; color: var(--dim); margin-top: 2px;
+}
+
+.settings .queries .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px;
+  padding: 4px 10px; border-radius: 14px; background: var(--border); color: var(--text);
+}
+.chip .x {
+  background: none; border: none; color: var(--dim); cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 0;
+}
+.chip .x:hover { color: var(--red); }
+.chips.quick { margin-top: 6px; }
+.chip.add { background: var(--panel); border: 1px solid var(--border); color: var(--dim); cursor: pointer; }
+.chip.add:hover { color: var(--text); border-color: var(--accent); }
+.settings .queries .filters { flex-wrap: wrap; gap: 8px; }

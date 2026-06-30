@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"stream-analytics/backend/internal/config"
@@ -26,6 +27,9 @@ type Server struct {
 	IsMock     func() bool
 	KeysStatus func() KeysStatus
 	SetKeys    func(ctx context.Context, k config.Keys, wipe bool) (map[string]string, error)
+
+	GetQueries func() []string
+	SetQueries func(qs []string) []string
 }
 
 func (s *Server) Handler() http.Handler {
@@ -34,8 +38,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/poll", s.handlePoll)
 	mux.HandleFunc("GET /api/keys/status", s.handleKeysStatus)
 	mux.HandleFunc("POST /api/keys", s.handleSetKeys)
+	mux.HandleFunc("GET /api/queries", s.handleGetQueries)
+	mux.HandleFunc("POST /api/queries", s.handleSetQueries)
 	mux.HandleFunc("GET /api/{platform}/streams", s.handleStreams)
-	mux.HandleFunc("GET /api/{platform}/categories", s.handleCategories)
+	mux.HandleFunc("GET /api/{platform}/games", s.handleGames)
 
 	if st, err := os.Stat(s.StaticDir); err == nil && st.IsDir() {
 		fs := http.FileServer(http.Dir(s.StaticDir))
@@ -177,17 +183,46 @@ func (s *Server) handleStreams(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"items": items, "total": total, "from": from, "to": to})
 }
 
-func (s *Server) handleCategories(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGames(w http.ResponseWriter, r *http.Request) {
 	platform := r.PathValue("platform")
 	if !platformOK(platform) {
 		writeErr(w, 404, "unknown platform: "+platform)
 		return
 	}
 	from, to := parsePeriod(r)
-	items, err := s.Store.ListCategories(platform, from, to)
+	items, err := s.Store.ListGames(platform, from, to)
 	if err != nil {
 		writeErr(w, 500, err.Error())
 		return
 	}
 	writeJSON(w, map[string]any{"items": items, "from": from, "to": to})
+}
+
+func (s *Server) handleGetQueries(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]any{"queries": s.GetQueries()})
+}
+
+func (s *Server) handleSetQueries(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Queries []string `json:"queries"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, 400, "bad json: "+err.Error())
+		return
+	}
+	clean := make([]string, 0, len(body.Queries))
+	seen := map[string]bool{}
+	for _, q := range body.Queries {
+		q = strings.TrimSpace(q)
+		if q == "" || seen[q] {
+			continue
+		}
+		seen[q] = true
+		clean = append(clean, q)
+	}
+	if len(clean) == 0 {
+		writeErr(w, 400, "at least one query is required")
+		return
+	}
+	writeJSON(w, map[string]any{"queries": s.SetQueries(clean)})
 }
