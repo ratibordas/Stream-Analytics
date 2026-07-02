@@ -57,7 +57,7 @@ func (a *app) rebuild(keys config.Keys) {
 		// } else {
 		// 	log.Printf("twitch collector: disabled (no keys)")
 		// }
-		if keys.YouTubeAPIKey != "" {
+		if keys.YouTubeAPIKey != "" && len(a.queries) > 0 {
 			ytInterval := a.cfg.YTPollInterval
 			if len(a.queries) > 2 && ytInterval < 30*time.Minute {
 				log.Printf("youtube: %d queries -> raising poll interval to 30m to respect quota",
@@ -66,7 +66,7 @@ func (a *app) rebuild(keys config.Keys) {
 			}
 			mgr.Add(collector.NewYouTube(keys.YouTubeAPIKey, a.queries, a.st), ytInterval)
 		} else {
-			log.Printf("youtube collector: disabled (no key)")
+			log.Printf("youtube collector: disabled (no key or no tracked games)")
 		}
 	}
 	mgr.Start(ctx)
@@ -112,8 +112,18 @@ func (a *app) keysStatus() api.KeysStatus {
 	return api.KeysStatus{
 		Twitch:  a.keys.TwitchClientID != "" && a.keys.TwitchSecret != "",
 		YouTube: a.keys.YouTubeAPIKey != "",
+		Rawg:    a.keys.RawgAPIKey != "",
 		Mock:    a.mock,
 	}
+}
+
+// searchGames proxies the RAWG catalog for the game picker using the current
+// RAWG key.
+func (a *app) searchGames(ctx context.Context, q string) ([]collector.RawgGame, error) {
+	a.mu.Lock()
+	key := a.keys.RawgAPIKey
+	a.mu.Unlock()
+	return collector.SearchGames(ctx, key, q)
 }
 
 func (a *app) setKeys(ctx context.Context, keys config.Keys, wipe bool) (map[string]string, error) {
@@ -129,6 +139,11 @@ func (a *app) setKeys(ctx context.Context, keys config.Keys, wipe bool) (map[str
 	if keys.YouTubeAPIKey != "" {
 		if err := collector.ValidateYouTube(ctx, keys.YouTubeAPIKey); err != nil {
 			fieldErrs["youtube"] = err.Error()
+		}
+	}
+	if keys.RawgAPIKey != "" {
+		if err := collector.ValidateRAWG(ctx, keys.RawgAPIKey); err != nil {
+			fieldErrs["rawg"] = err.Error()
 		}
 	}
 	if len(fieldErrs) > 0 {
@@ -165,19 +180,21 @@ func main() {
 		TwitchClientID: cfg.TwitchClientID,
 		TwitchSecret:   cfg.TwitchSecret,
 		YouTubeAPIKey:  cfg.YouTubeAPIKey,
+		RawgAPIKey:     cfg.RawgAPIKey,
 	})
 
 	srv := &http.Server{
 		Addr: fmt.Sprintf(":%d", cfg.Port),
 		Handler: (&api.Server{
-			Store:      st,
-			StaticDir:  cfg.StaticDir,
-			PollNow:    a.pollNow,
-			IsMock:     a.isMock,
-			KeysStatus: a.keysStatus,
-			SetKeys:    a.setKeys,
-			GetQueries: a.getQueries,
-			SetQueries: a.setQueries,
+			Store:       st,
+			StaticDir:   cfg.StaticDir,
+			PollNow:     a.pollNow,
+			IsMock:      a.isMock,
+			KeysStatus:  a.keysStatus,
+			SetKeys:     a.setKeys,
+			GetQueries:  a.getQueries,
+			SetQueries:  a.setQueries,
+			SearchGames: a.searchGames,
 		}).Handler(),
 	}
 	go func() {

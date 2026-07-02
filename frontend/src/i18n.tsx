@@ -79,6 +79,16 @@ const en = {
   cGameName: 'Game',
   trackGame: 'Track & fetch',
   loadingMore: 'Loading…',
+  gAdd: 'Add games',
+  gFilter: 'Filter games…',
+  gEmptyTracked: 'No games tracked yet — pick some to follow.',
+  gChoose: 'Choose games to track',
+  gSearch: 'Search games…',
+  gApply: 'Apply',
+  gCancel: 'Cancel',
+  gAddFree: 'Add',
+  gNoRawg: 'Add a RAWG key in Settings for the full game catalog — you can still type a game name here.',
+  sRawgHint: 'game catalog',
 }
 
 const ru: typeof en = {
@@ -157,6 +167,16 @@ const ru: typeof en = {
   cGameName: 'Игра',
   trackGame: 'Отслеживать и загрузить',
   loadingMore: 'Загрузка…',
+  gAdd: 'Добавить игры',
+  gFilter: 'Фильтр игр…',
+  gEmptyTracked: 'Пока нет отслеживаемых игр — выбери, за какими следить.',
+  gChoose: 'Выбрать игры для отслеживания',
+  gSearch: 'Поиск игр…',
+  gApply: 'Применить',
+  gCancel: 'Отмена',
+  gAddFree: 'Добавить',
+  gNoRawg: 'Добавь ключ RAWG в настройках для полного каталога игр — здесь всё равно можно ввести название вручную.',
+  sRawgHint: 'каталог игр',
 }
 
 const dict: Record<Lang, typeof en> = { en, ru }

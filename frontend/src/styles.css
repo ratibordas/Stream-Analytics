@@ -166,7 +166,6 @@ th .sub {
   letter-spacing: 0; color: var(--dim); margin-top: 2px;
 }
 
-.settings .queries .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px; font-size: 13px;
   padding: 4px 10px; border-radius: 14px; background: var(--border); color: var(--text);
@@ -176,7 +175,32 @@ th .sub {
   font-size: 15px; line-height: 1; padding: 0;
 }
 .chip .x:hover { color: var(--red); }
-.chips.quick { margin-top: 6px; }
-.chip.add { background: var(--panel); border: 1px solid var(--border); color: var(--dim); cursor: pointer; }
-.chip.add:hover { color: var(--text); border-color: var(--accent); }
-.settings .queries .filters { flex-wrap: wrap; gap: 8px; }
+.chip .x:disabled { opacity: 0.4; cursor: default; }
+
+.gamesbar { align-items: center; flex-wrap: wrap; gap: 8px; }
+.gamesbar .pollbtn { font-size: 13px; padding: 6px 12px; }
+.gfilter { min-width: 160px; }
+
+.empty-cta { text-align: center; color: var(--dim); padding: 48px 16px; }
+.empty-cta p { margin-bottom: 14px; }
+
+.selector {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px; margin-bottom: 12px; max-width: 520px;
+}
+.selector .gfilter { width: 100%; margin-bottom: 8px; }
+.selector-list { max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.selrow {
+  display: flex; align-items: center; gap: 8px; padding: 5px 6px;
+  border-radius: 6px; cursor: pointer; font-size: 14px;
+}
+.selrow:hover { background: #1d1d28; }
+.selrow input { flex: none; }
+.selrow.addfree {
+  width: 100%; text-align: left; background: none; border: none;
+  color: var(--accent); cursor: pointer; font: inherit;
+}
+.selrow.addfree:hover { background: #1d1d28; }
+.selrow .gameicon, .selrow .gameicon.fallback { width: 20px; height: 26px; }
+.seldiv { border-top: 1px solid var(--border); margin: 6px 0; }
+.selector-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }

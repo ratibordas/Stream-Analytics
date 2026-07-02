@@ -135,12 +135,25 @@ export interface ApiKeys {
   twitch_client_id: string
   twitch_client_secret: string
   youtube_api_key: string
+  rawg_api_key: string
 }
 
 export interface KeysStatus {
   twitch_configured: boolean
   youtube_configured: boolean
+  rawg_configured: boolean
   mock: boolean
+}
+
+export interface CatalogGame {
+  name: string
+  image: string
+}
+
+export function searchGameCatalog(q: string) {
+  const p = new URLSearchParams()
+  if (q) p.set('q', q)
+  return getJSON<{ items: CatalogGame[] }>(`/api/games/search?${p}`)
 }
 
 export const KEYS_LS = 'sa_api_keys'

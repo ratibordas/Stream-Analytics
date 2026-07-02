@@ -12,6 +12,7 @@ type Keys struct {
 	TwitchClientID string `json:"twitch_client_id"`
 	TwitchSecret   string `json:"twitch_client_secret"`
 	YouTubeAPIKey  string `json:"youtube_api_key"`
+	RawgAPIKey     string `json:"rawg_api_key"`
 }
 
 type Config struct {
@@ -20,6 +21,7 @@ type Config struct {
 	TwitchClientID  string
 	TwitchSecret    string
 	YouTubeAPIKey   string
+	RawgAPIKey      string
 	Mock            bool
 	MockMode        string
 	Categories      []string
@@ -86,8 +88,9 @@ func Load() Config {
 		TwitchClientID:  os.Getenv("TWITCH_CLIENT_ID"),
 		TwitchSecret:    os.Getenv("TWITCH_CLIENT_SECRET"),
 		YouTubeAPIKey:   os.Getenv("YOUTUBE_API_KEY"),
+		RawgAPIKey:      os.Getenv("RAWG_API_KEY"),
 		Categories:      getlist("CATEGORIES", "Just Chatting,League of Legends,Counter-Strike,Dota 2,Minecraft,Grand Theft Auto V,Valorant,Fortnite"),
-		YouTubeQueries:  getlist("YOUTUBE_QUERIES", "Minecraft,Fortnite,VALORANT,League of Legends,Grand Theft Auto V,Counter-Strike 2,Dota 2,Call of Duty Warzone,Apex Legends,Roblox"),
+		YouTubeQueries:  getlist("YOUTUBE_QUERIES", ""),
 		PollInterval:    time.Duration(getint("POLL_INTERVAL_SEC", 900)) * time.Second,
 		YTPollInterval:  time.Duration(getint("YT_POLL_INTERVAL_SEC", 14400)) * time.Second,
 		StaticDir:       getenv("STATIC_DIR", "../frontend/dist"),

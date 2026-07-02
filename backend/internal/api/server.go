@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"stream-analytics/backend/internal/collector"
 	"stream-analytics/backend/internal/config"
 	"stream-analytics/backend/internal/store"
 )
@@ -17,6 +18,7 @@ import (
 type KeysStatus struct {
 	Twitch  bool `json:"twitch_configured"`
 	YouTube bool `json:"youtube_configured"`
+	Rawg    bool `json:"rawg_configured"`
 	Mock    bool `json:"mock"`
 }
 
@@ -28,8 +30,9 @@ type Server struct {
 	KeysStatus func() KeysStatus
 	SetKeys    func(ctx context.Context, k config.Keys, wipe bool) (map[string]string, error)
 
-	GetQueries func() []string
-	SetQueries func(qs []string) []string
+	GetQueries  func() []string
+	SetQueries  func(qs []string) []string
+	SearchGames func(ctx context.Context, q string) ([]collector.RawgGame, error)
 }
 
 func (s *Server) Handler() http.Handler {
@@ -40,6 +43,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/keys", s.handleSetKeys)
 	mux.HandleFunc("GET /api/queries", s.handleGetQueries)
 	mux.HandleFunc("POST /api/queries", s.handleSetQueries)
+	mux.HandleFunc("GET /api/games/search", s.handleGameSearch)
 	mux.HandleFunc("GET /api/{platform}/streams", s.handleStreams)
 	mux.HandleFunc("GET /api/{platform}/games", s.handleGames)
 
@@ -220,9 +224,19 @@ func (s *Server) handleSetQueries(w http.ResponseWriter, r *http.Request) {
 		seen[q] = true
 		clean = append(clean, q)
 	}
-	if len(clean) == 0 {
-		writeErr(w, 400, "at least one query is required")
+	writeJSON(w, map[string]any{"queries": s.SetQueries(clean)})
+}
+
+func (s *Server) handleGameSearch(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	games, err := s.SearchGames(ctx, r.URL.Query().Get("q"))
+	if err != nil {
+		writeErr(w, 502, err.Error())
 		return
 	}
-	writeJSON(w, map[string]any{"queries": s.SetQueries(clean)})
+	if games == nil {
+		games = []collector.RawgGame{}
+	}
+	writeJSON(w, map[string]any{"items": games})
 }

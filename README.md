@@ -38,23 +38,26 @@ Copy `.env.example` to `.env` (done by `setup.sh`). Key settings:
 | Var | Default | Purpose |
 |-----|---------|---------|
 | `YOUTUBE_API_KEY` | — | YouTube Data API v3 key. Empty → mock mode. |
+| `RAWG_API_KEY` | — | [RAWG](https://rawg.io/apidocs) key — powers the game picker's catalog. |
 | `YT_POLL_INTERVAL_SEC` | `14400` | Poll interval (4 h). `search.list` costs 100 of 10 000 daily quota units. |
 | `MOCK` | `auto` | `auto` (mock when no key) / `true` / `false`. |
 | `PORT` | `8080` | HTTP port. |
 | `DB_PATH` | `./data/analytics.db` | SQLite file. |
 
-Get a key: [console.cloud.google.com](https://console.cloud.google.com) → create a project →
-enable **YouTube Data API v3** → Credentials → API key.
+Get keys: YouTube — [console.cloud.google.com](https://console.cloud.google.com) → create a
+project → enable **YouTube Data API v3** → Credentials → API key. RAWG —
+[rawg.io/apidocs](https://rawg.io/apidocs) (free, email signup).
 
 Keys can also be set at runtime via the **Settings** tab: they're validated against the
 real API, kept only in browser `localStorage` + server memory (never written to disk),
 and hot-swap the collectors with no restart.
 
-**Tracked games** are managed the same way (Settings → "Tracked games"): each entry is a
-free-text YouTube live-search (e.g. `dark souls`, `minecraft`) that the collector polls.
-They live in the browser, are pushed to the server, and hot-rebuild the collector — there
-is no `.env` query list. A stream's **game** is the search it was found under; searching a
-game that isn't tracked offers a one-click "Track & fetch" to add and poll it immediately.
+**Tracked games** are chosen in the **Games** tab: an "Add games" picker searches the RAWG
+catalog (multi-select), picked games show as removable chips, and each becomes a YouTube
+live-search the collector polls. The tracked list lives in the browser, is pushed to the
+server, and hot-rebuilds the collector — there is no `.env` list and no hardcoded seed
+(the app starts empty). Searching a game that isn't tracked in the streams table also
+offers a one-click "Track & fetch".
 
 ## API
 
@@ -65,6 +68,7 @@ GET  /api/keys/status           # which keys are active, mock flag
 POST /api/keys                  # {youtube_api_key, wipe_data} — validate + hot-swap
 GET  /api/queries               # current tracked games
 POST /api/queries               # {queries:[...]} — replace + hot-rebuild collector
+GET  /api/games/search          # ?q= — RAWG catalog proxy for the game picker
 GET  /api/youtube/streams       # ?game=&streamer=&min_viewers=&max_viewers=
                                 #  &from=<unix>&to=<unix>&sort=current|period|trend
                                 #  &order=asc|desc&live=0|1&limit=&offset=

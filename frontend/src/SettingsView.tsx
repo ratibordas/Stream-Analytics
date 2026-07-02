@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import {
-  ApiKeys, fetchKeysStatus, fetchQueries, KEYS_LS, KeysStatus,
-  loadKeysFromBrowser, loadQueriesFromBrowser, QUERIES_LS, saveKeys, saveQueries,
-} from './api'
+import { ApiKeys, fetchKeysStatus, KEYS_LS, KeysStatus, loadKeysFromBrowser, saveKeys } from './api'
 import { Lang, useI18n } from './i18n'
 
-const EMPTY: ApiKeys = { twitch_client_id: '', twitch_client_secret: '', youtube_api_key: '' }
+const EMPTY: ApiKeys = {
+  twitch_client_id: '', twitch_client_secret: '', youtube_api_key: '', rawg_api_key: '',
+}
 
 export default function SettingsView({ onChanged }: { onChanged: () => void }) {
   const { t, lang, setLang } = useI18n()
@@ -74,7 +73,7 @@ export default function SettingsView({ onChanged }: { onChanged: () => void }) {
       <h2>{t('sTitle')}</h2>
       {status && (
         <p>
-          {badge(status.youtube_configured, 'YouTube')}{' '}
+          {badge(status.youtube_configured, 'YouTube')} {badge(status.rawg_configured, 'RAWG')}{' '}
           {status.mock && <span className="badge mock">MOCK</span>}
         </p>
       )}
@@ -105,6 +104,15 @@ export default function SettingsView({ onChanged }: { onChanged: () => void }) {
         {errors.youtube && <div className="err">{errors.youtube}</div>}
       </fieldset>
 
+      <fieldset>
+        <legend>RAWG — <a href="https://rawg.io/apidocs" target="_blank" rel="noreferrer">rawg.io/apidocs</a> ({t('sRawgHint')})</legend>
+        <label>
+          {t('sApiKey')}
+          <input type="password" value={keys.rawg_api_key} onChange={set('rawg_api_key')} autoComplete="off" />
+        </label>
+        {errors.rawg && <div className="err">{errors.rawg}</div>}
+      </fieldset>
+
       <label className="chk">
         <input type="checkbox" checked={wipe} onChange={(e) => setWipe(e.target.checked)} />
         {t('sWipe')}
@@ -118,78 +126,6 @@ export default function SettingsView({ onChanged }: { onChanged: () => void }) {
       </div>
       {errors.global && <div className="err">{errors.global}</div>}
       {okMsg && <div className="ok">{okMsg}</div>}
-
-      <QueriesManager onChanged={onChanged} />
     </div>
-  )
-}
-
-function QueriesManager({ onChanged }: { onChanged: () => void }) {
-  const { t } = useI18n()
-  const [queries, setQueries] = useState<string[]>([])
-  const [draft, setDraft] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState('')
-
-  useEffect(() => {
-    const local = loadQueriesFromBrowser()
-    if (local && local.length) setQueries(local)
-    else fetchQueries().then((r) => setQueries(r.queries)).catch(() => {})
-  }, [])
-
-  const add = (q: string) => {
-    const v = q.trim()
-    if (!v || queries.some((x) => x.toLowerCase() === v.toLowerCase())) return
-    setQueries([...queries, v])
-    setDraft('')
-    setMsg('')
-  }
-  const remove = (q: string) => {
-    setQueries(queries.filter((x) => x !== q))
-    setMsg('')
-  }
-
-  const apply = async () => {
-    setBusy(true)
-    setMsg('')
-    try {
-      const r = await saveQueries(queries)
-      setQueries(r.queries)
-      localStorage.setItem(QUERIES_LS, JSON.stringify(r.queries))
-      setMsg(t('qApplied'))
-      onChanged()
-    } catch (e) {
-      setMsg(String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <fieldset className="queries">
-      <legend>{t('qTitle')}</legend>
-      <p className="hint">{t('qHint')}</p>
-      <div className="chips">
-        {queries.map((q) => (
-          <span className="chip" key={q}>
-            {q}
-            <button className="x" onClick={() => remove(q)} aria-label="remove">×</button>
-          </span>
-        ))}
-      </div>
-      <div className="filters">
-        <input
-          placeholder={t('qAdd')}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add(draft)}
-        />
-        <button className="reset" onClick={() => add(draft)}>{t('qAddBtn')}</button>
-        <button className="pollbtn" onClick={apply} disabled={busy || queries.length === 0}>
-          {busy ? t('sApplying') : t('qApply')}
-        </button>
-      </div>
-      {msg && <div className="ok">{msg}</div>}
-    </fieldset>
   )
 }

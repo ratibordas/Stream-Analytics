@@ -34,10 +34,14 @@ export default function App() {
 
   useEffect(() => {
     const keys = loadKeysFromBrowser()
-    if (!keys || (!keys.twitch_client_id && !keys.youtube_api_key)) return
+    if (!keys) return
     fetchKeysStatus()
       .then((s) => {
-        if (s.mock) return saveKeys(keys, false).then(reloadMeta)
+        const missing =
+          s.mock ||
+          (!!keys.youtube_api_key && !s.youtube_configured) ||
+          (!!keys.rawg_api_key && !s.rawg_configured)
+        if (missing) return saveKeys(keys, false).then(reloadMeta)
       })
       .catch(() => {})
   }, [reloadMeta])
